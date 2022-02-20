@@ -1,0 +1,9 @@
+anetabtc
+santo
+addresses
+files
+*wallet*
+*.csv
+tx*
+.idea
+__pycache__
