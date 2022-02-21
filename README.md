@@ -3,18 +3,18 @@ A Cardano native tokens airdrop Python3 script.
 
 ## Problem to solve
 The first use case for FreeDropz is to distribute a single native token type to a list of cardano addresses, without making the recipient addresses pay.
-This could be used for example by a Stake Pool to distribute native tokens to its delegators, paying for the transaction fees and also the amount of about 1.45 ADA that must accompany any native token.
-Using a wallet to create the individual transactions, the amount of transaction fees and of time spent will be very big. By combining the transactions into batches of 120 (configurable in `config.py`), the estimated transaction fees saved is about 96% (during the tests). The amount of ADA that has to be sent with the tokens cannot be avoided.
+This could be used for example by a Stake Pool to distribute native tokens to its delegators, paying for the transaction fees and also an amount of ~1.45 ADA that must accompany any native token.
+Using a wallet to create each individual transaction, the cost of transaction fees and amount of time spent will be very large. By combining the transactions into batches of 120 (configurable in `config.py`), the estimated transaction fees saved is about 96% (during the preliminary tests). The amount of ADA that has to be sent with the tokens cannot be avoided.
 
 ## How the script works
-The ideal computer where this script can run is computer running linux.
+The ideal computer to run this script is any computer running linux.
 The `cardano-cli` command will also be required, and `cardano-cli` must be able to communicate with a Cardano full node through the node socket. This can be done by running the Cardano node locally, or by connecting to a remote Cardano node's socket using `socat`. Other required commands are `jq` and `xxd`. As python requirements, only the `PyYAML` pip package will be required (see `requirements.txt`).
-A cardano address, and its spending key, both stored in files on the same computer, will also be required. Ideally the address will be generated for the airdrop, the amount of tokens and ADA required for the airdrop will be sent to this address before running the airdrop script, and after running the script, the address will never be used again (from security reasons).
+A cardano address, and its spending key, both stored in files on the same computer, will also be required. Ideally a new address will be generated for the airdrop, the amount of tokens and ADA required for the airdrop will be sent to this address before running the airdrop script, and after running the script, the address will never be used again (for security reasons).
 The amount of tokens can be exactly the total amount required for the airdrop, but the amount of ADA must be higher, to cover the transactions fees. For 1000 addresses, probably about 1500 ADA will be required.
 
-If the number of transactions you have to do is big (and this is the purpose of this script), because of how the UTxO model works, the script will need a large amount of UTxO to use them as inputs for the airdrop transactions.
-For this reason, the script will actually do the airdrop in 2 steps:
-1. The script will first analyze the airdrop file and will calculate how many transactions are required for the airdrop and how many tokens and lovelace will be required for each transaction. Then it will create a transaction to create ahe required UTxOs at the first address configured in the `SRC_ADDRESSES` list in the `config.py` file (the details about how to configure this are below in this README).
+If the number of transactions you have to do is large (which is the purpose of this script), because of how the UTxO model works, the script will need a large amount of UTxO to use as inputs for the airdrop transactions.
+For this reason, the script will actually do the airdrop in two steps:
+1. The script will first analyze the airdrop file and calculate how many transactions are required for the airdrop and how many tokens and lovelace will be required for each transaction. Then it will create a transaction to create the required UTxOs at the first address configured in the `SRC_ADDRESSES` list in the `config.py` file (the details about how to configure this are below in this README).
 2. After the input UTxOs are created, the airdrop transactions will be created, using these inputs.
 
 A confirmation will be required before submitting the first transaction, and another one before submitting the airdrop transactions. Before confirming the transactions submitting, you can examine the transaction files using the following command:
@@ -77,7 +77,7 @@ The default number of addresses in one transaction will be 120. You can change i
 
 Setting it too high will create transaction files over the maximum transaction file and the transactions will fail. I recommend leaving it 120, the default value.
 
-You will also need to set amount of ADA (in lovelace, 1 ADA = 1000000 lovelace) to be used for the input UTxOs. A part of this amount will be used to cover the airdrop transaction fees, and the rest will be send to the `CHANGE_ADDRESS`. The default value is 3 ADA, but 2 ADA should also be enough. Do not set it lower than 2 ADA, otherwise the transactions might fail.
+You will also need to set the amount of ADA (in lovelace, 1 ADA = 1000000 lovelace) to be used for the input UTxOs. A part of this amount will be used to cover the airdrop transaction fees, and the rest will be send to the `CHANGE_ADDRESS`. The default value is 3 ADA, but 2 ADA should also be enough. Do not set it lower than 2 ADA, otherwise the transactions might fail.
 
     EXTRA_LOVELACE = 3000000
 
@@ -85,7 +85,7 @@ The last setting is the `SUBMIT_API` url to be used for sending the transactions
 
     SUBMITAPI_URL = 'http://<IP address or hostname>:8090/api/submit/tx'
 
-You will need a working submit-api for this. If the number of transactions will be big, it is better if you use a load balancer that will send the transactions to more submit-api urls.
+You will need a working submit-api for this. If the number of transactions will be big, it is better if you use a load balancer that will distribute the transactions between multiple submit-api urls.
 In case you don't have a submit-api url, and you don't want to set one, you can use the local node to submit the transactions, but the preferred way is to use a submit-api url. In order to use the local node to submit the transactions, set the `SUBMITAPI_URL` value to `''` (empty string).
 
 ## Running the script
