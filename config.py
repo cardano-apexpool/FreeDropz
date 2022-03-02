@@ -23,3 +23,8 @@ LOVELACE_AMOUNT = 1444404
 ADDRESSES_PER_TRANSACTION = 120
 EXTRA_LOVELACE = 3000000
 SUBMITAPI_URL = 'http://<IP_OR_HOSTNAME>:8090/api/submit/tx'
+
+"""
+sqlite3 database settings
+"""
+DB_NAME = 'db/airdrops.db'

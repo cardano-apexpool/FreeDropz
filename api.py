@@ -918,6 +918,8 @@ if __name__ == '__main__':
             os.mkdir(FILES_PATH)
         if not os.path.exists(TRANSACTIONS_PATH):
             os.mkdir(TRANSACTIONS_PATH)
+        if not os.path.exists(os.path.dirname(DB_NAME)):
+            os.mkdir(os.path.dirname(DB_NAME))
     except Exception as e:
         print('Error creating the required folders: %s' % e)
         sys.exit(1)
