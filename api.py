@@ -35,7 +35,7 @@ airdrop_parser.add_argument('airdrop_file', type=FileStorage, location=FILES_PAT
 @ns.route('/')
 class Home(Resource):
     def get(self):
-        return "<h1>FreeDropz API</p>"
+        return "<h1>FreeDropz API</h1>"
 
 
 """
@@ -521,9 +521,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
             reply = 'y' # input('Confirm? [y/n] ')
             if reply.lower() in ('y', 'yes'):
                 if SUBMITAPI_URL == '':
-                    """
-                    TO DO: update the database
-                    """
                     # submit transaction to the local node
                     if len(MAGIC_NUMBER) == 0:
                         cmd = ["cardano-cli", "transaction", "submit", "--tx-file", TRANSACTIONS_PATH + '/tx.signed',
@@ -535,10 +532,20 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                     out, err = cardano_cli_cmd(cmd)
                     if err:
                         applog.error(err)
+                        """
+                        Update the transaction status - error
+                        """
+                        now = datetime.datetime.now()
+                        cur.execute("UPDATE transactions SET status = 'submit error: ?', date = ? WHERE id = ?",
+                                    (err, now, trans_id))
+                        cur.execute("UPDATE airdrops SET status = 'utxo transaction submit error', "
+                                    "date = ? WHERE id = ?", (now, airdrop_id))
+                        conn.commit()
                         msg = {}
                         msg['error'] = 'Server error: %s' % err
                         return msg, 503
-                    print('Transaction executed')
+
+                    print('Transaction %s submitted' % txid)
                     print(out)
                     applog.info(out)
                 else:
@@ -564,8 +571,10 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                             msg['error'] = 'Server error: %s' % response.text
                             return msg, response.status_code
                         else:
-                            applog.info(response.text.strip('"') + ' submitted')
-                            print(str(response.status_code) + ' ' + response.text.strip('"') + ' submitted')
+                            applog.info('%s transaction %s submitted' % (str(response.status_code),
+                                                                         response.text.strip('"')))
+                            print('%s transaction %s submitted' % (str(response.status_code),
+                                                                   response.text.strip('"')))
                     except Exception as e:
                         applog.error(err)
                         applog.exception(e)
@@ -770,7 +779,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
             cur.execute("INSERT INTO transactions (airdrop_id, hash, name, status, date) VALUES (?, ?, ?, ?, ?)",
                         (airdrop_id, txid, 'airdrop_transaction_' + str(count),
                          'transaction created, signed and encoded', now))
-            trans_id = cur.lastrowid
+        conn.commit()
 
         # list the cbor transaction files
         for i in range(count):
@@ -794,9 +803,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                 for i in range(count):
                     trans_filename_prefix = TRANSACTIONS_PATH + '/tx' + str(i + 1)
                     if SUBMITAPI_URL == '':
-                        """
-                        TO DO: update the database when submitting through the local node
-                        """
                         # submit transaction to the local node
                         if len(MAGIC_NUMBER) == 0:
                             cmd = ["cardano-cli", "transaction", "submit", "--tx-file",
@@ -807,18 +813,36 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                         out, err = cardano_cli_cmd(cmd)
                         if err:
                             applog.error(err)
+                            """
+                            Update the transaction status - error
+                            """
+                            now = datetime.datetime.now()
+                            cur.execute("UPDATE airdrops SET status = 'exception submitting airdrop transactions: ?', "
+                                        "date = ? WHERE id = ?", (err, now, airdrop_id))
+                            conn.commit()
                             msg = {}
                             msg['error'] = 'Server error: %s' % err
                             return msg, 503
                         print('Transaction submitted')
                         print(out)
                         applog.info(out)
-                        """
+
+                        # get the transaction id
+                        cmd = ["cardano-cli", "transaction", "txid", "--tx-file", trans_filename_prefix + '.signed']
+                        # execute the command
+                        out, err = cardano_cli_cmd(cmd)
+                        if err:
+                            applog.error(err)
+                            msg = {}
+                            msg['error'] = 'Server error: %s' % err
+                            return msg, 503
+                        txid = out.strip()
+
                         now = datetime.datetime.now()
-                        cur.execute("UPDATE transactions SET status = 'transaction submitted', date = ? WHERE id = ?",
-                                    (now, trans_id))
+                        cur.execute("UPDATE transactions SET status = 'transaction submitted', "
+                                    "date = ? WHERE hash = ?", (now, txid))
                         conn.commit()
-                        """
+                        transaction_ids.append(txid)
                     else:
                         try:
                             # read transaction from file
@@ -836,7 +860,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                                         "date = ? WHERE hash = ?", (now, response.text.strip('"')))
                             conn.commit()
                             transaction_ids.append(response.text.strip('"'))
-
                         except Exception as e:
                             print(e)
                             applog.exception(e)
