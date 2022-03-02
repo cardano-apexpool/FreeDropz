@@ -82,7 +82,8 @@ class EventValidate(Resource):
                 data = request.data
             elif len(request.files) > 0:
                 args = airdrop_parser.parse_args()
-                if request.content_type == 'application/json':
+                print(request.content_type)
+                if 'multipart/form-data' in request.content_type:
                     args['airdrop_file'].save(FILES_PATH + '/airdrop_file.json')
                     with open('files/airdrop_file.json', 'r') as f:
                         data = f.read()
@@ -198,7 +199,7 @@ class EventSubmit(Resource):
                 data = request.data
             elif len(request.files) > 0:
                 args = airdrop_parser.parse_args()
-                if request.content_type == 'application/json':
+                if 'multipart/form-data' in request.content_type:
                     args['airdrop_file'].save(FILES_PATH + '/airdrop_file.json')
                     with open('files/airdrop_file.json', 'r') as f:
                         data = f.read()
