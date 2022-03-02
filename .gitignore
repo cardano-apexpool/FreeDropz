@@ -1,9 +1,8 @@
-anetabtc
-santo
 addresses
 files
 *wallet*
 *.csv
+*.json
 tx*
 .idea
 __pycache__

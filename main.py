@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-import json
+import sys
 import requests
 import logging.handlers
 from time import sleep

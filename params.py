@@ -19,3 +19,5 @@ TRANSACTION_EXPIRE = os.getenv('TRANSACTION_EXPIRE', 86400)
 MAX_IN_UTXOS = os.getenv('MAX_IN_UTXOS', 250)
 # sleep timeout during various steps of the script
 SLEEP_TIMEOUT = os.getenv('SLEEP_TIMEOUT', 5)
+# api port
+API_PORT = os.getenv('API_PORT', 8100)
