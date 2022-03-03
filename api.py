@@ -47,7 +47,6 @@ class Home(Resource):
 class Test(Resource):
     def get(self):
         args = test_parser.parse_args()
-        print(args)
         return "<h1>FreeDropz API</p><br>Token: %s.%s" % (args['token_policy'], args['token_name'])
 """
 
@@ -60,10 +59,9 @@ class Test(Resource):
 class Test(Resource):
     def get(self):
         args = airdrop_details_parser.parse_args()
-        print(args)
         conn = sqlite3.connect(DB_NAME)
         cur = conn.cursor()
-        cur.execute("SELECT id FROM airdrops WHERE hash = ?", (args['airdrop_hash'],))
+        cur.execute("SELECT max(id) FROM airdrops WHERE hash = ?", (args['airdrop_hash'],))
         airdrop_id = cur.fetchone()[0]
         airdrop_details = get_airdrop_details(cur, airdrop_id)
         conn.close()
@@ -82,7 +80,6 @@ class EventValidate(Resource):
                 data = request.data
             elif len(request.files) > 0:
                 args = airdrop_parser.parse_args()
-                print(request.content_type)
                 if 'multipart/form-data' in request.content_type:
                     args['airdrop_file'].save(FILES_PATH + '/airdrop_file.json')
                     with open('files/airdrop_file.json', 'r') as f:
@@ -390,17 +387,15 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
             transaction['total_amounts'] = total_amounts
             transactions.append(transaction)
 
-        print('Number of transactions to do: %d' % len(transactions))
+        applog.debug('Number of transactions to do: %d' % len(transactions))
         applog.debug('Transactions list:')
         t_cnt = 0
         for t in transactions:
             t_cnt += 1
             applog.debug('Transaction %d: %s' % (t_cnt, t))
         # debug
-        print('total lovelace in transactions: %d' % amount_lovelace)
-        print('total tokens in transactions: %d' % amount_tokens)
-        applog.info('total lovelace: %d' % amount_lovelace)
-        applog.info('total tokens: %d' % amount_tokens)
+        applog.info('total lovelace in transactions: %d' % amount_lovelace)
+        applog.info('total tokens in transactions: %d' % amount_tokens)
 
         """
         Write the airdrop information and the transaction information in the database
@@ -452,7 +447,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
             msg = {}
             msg['error'] = 'Server error: %s' % err
             return msg, 503
-        print(out.strip())
         applog.info(out)
 
         # get the transaction id
@@ -465,7 +459,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
             msg['error'] = 'Server error: %s' % err
             return msg, 503
         txid = out.strip()
-        print('Transaction ID: %s' % txid)
         applog.info('Transaction ID: %s' % txid)
 
         """
@@ -497,7 +490,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
         cmd = 'jq .cborHex ' + TRANSACTIONS_PATH + '/tx.signed | xxd -r -p > ' + TRANSACTIONS_PATH + '/tx.signed.cbor'
         stream = os.popen(cmd)
         out = stream.read().strip()
-        print(out)
+        applog.debug(out)
 
         """
         Update the transaction status - cbor encoded
@@ -514,7 +507,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
         cmd = 'ls -l ' + TRANSACTIONS_PATH + '/tx.signed.cbor'
         stream = os.popen(cmd)
         out = stream.read().strip()
-        print(out)
+        applog.debug(out)
 
         # ask for confirmation before sending the transaction
         while True:
@@ -545,8 +538,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                         msg['error'] = 'Server error: %s' % err
                         return msg, 503
 
-                    print('Transaction %s submitted' % txid)
-                    print(out)
+                    applog.info('Transaction %s submitted' % txid)
                     applog.info(out)
                 else:
                     try:
@@ -573,8 +565,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                         else:
                             applog.info('%s transaction %s submitted' % (str(response.status_code),
                                                                          response.text.strip('"')))
-                            print('%s transaction %s submitted' % (str(response.status_code),
-                                                                   response.text.strip('"')))
                     except Exception as e:
                         applog.error(err)
                         applog.exception(e)
@@ -626,11 +616,10 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
         found = False
         src_token_trans = []
         while not found:
-            print('waiting for transaction %s to be adopted...' % txid)
+            applog.info('waiting for transaction %s to be adopted...' % txid)
             sleep(SLEEP_TIMEOUT)
             src_trans, src_token_trans, tok_amounts, out, err = get_transactions(first_src_address)
             if err:
-                print(err)
                 applog.error(err)
                 msg = {}
                 msg['error'] = 'Server error: %s' % err
@@ -642,7 +631,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                         break
 
         # the expected transaction was found
-        print('Transaction %s adopted, continuing airdrop' % txid)
         applog.info('Transaction %s adopted, continuing airdrop' % txid)
         """
         Update the transaction status - adopted
@@ -727,7 +715,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                 cmd.append(str(MAGIC_NUMBER))
             out, err = cardano_cli_cmd(cmd)
             if err:
-                print(err)
                 applog.error(err)
                 now = datetime.datetime.now()
                 cur.execute("UPDATE airdrops SET status = ?, date = ? WHERE id = ?",
@@ -736,13 +723,11 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                 msg = {}
                 msg['error'] = 'Server error: %s' % err
                 return msg, 503
-            print(out)
             applog.info(out)
 
             # sign transaction
             _, err = sign_transaction(SRC_KEYS, trans_filename_prefix + '.raw', trans_filename_prefix + '.signed')
             if err:
-                print(err)
                 applog.error(err)
                 now = datetime.datetime.now()
                 cur.execute("UPDATE airdrops SET status = ?, date = ? WHERE id = ?",
@@ -762,7 +747,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                 msg['error'] = 'Server error: %s' % err
                 return msg, 503
             txid = out.strip()
-            print('Transaction ID: %s' % txid)
             applog.info('Transaction ID: %s' % txid)
 
             """
@@ -773,7 +757,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                   + trans_filename_prefix + '.signed.cbor'
             stream = os.popen(cmd)
             out = stream.read().strip()
-            print(out)
+            applog.info(out)
 
             now = datetime.datetime.now()
             cur.execute("INSERT INTO transactions (airdrop_id, hash, name, status, date) VALUES (?, ?, ?, ?, ?)",
@@ -787,7 +771,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
             cmd = 'ls -l ' + trans_filename_prefix + '.signed.cbor'
             stream = os.popen(cmd)
             out = stream.read().strip()
-            print(out)
+            applog.debug(out)
 
         now = datetime.datetime.now()
         cur.execute("UPDATE airdrops SET status = 'submitting airdrop transactions', date = ? WHERE id = ?",
@@ -823,8 +807,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                             msg = {}
                             msg['error'] = 'Server error: %s' % err
                             return msg, 503
-                        print('Transaction submitted')
-                        print(out)
+                        applog.info('Transaction submitted')
                         applog.info(out)
 
                         # get the transaction id
@@ -852,8 +835,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                             headers = {'Accept': '*/*', 'Content-Type': 'application/cbor'}
                             response = requests.post(SUBMITAPI_URL, data=data, headers=headers)
                             message = 'Transaction ' + response.text.strip('"') + ' submitted'
-                            applog.info(message)
-                            print(str(response.status_code) + ' ' + message)
+                            applog.info(str(response.status_code) + ' ' + message)
                             submitted_transactions.append(response.text.strip('"'))
                             now = datetime.datetime.now()
                             cur.execute("UPDATE transactions SET status = 'transaction submitted', "
@@ -861,7 +843,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                             conn.commit()
                             transaction_ids.append(response.text.strip('"'))
                         except Exception as e:
-                            print(e)
                             applog.exception(e)
                             now = datetime.datetime.now()
                             cur.execute("UPDATE airdrops SET status = ?, date = ? WHERE id = ?",
@@ -873,7 +854,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                 break
             elif reply.lower() in ('n', 'no'):
                 message = 'Transaction(s) cancelled'
-                print(message)
                 applog.info(message)
                 msg = {}
                 msg['error'] = message
@@ -891,14 +871,12 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
         """
         Waiting for the transactions to be adopted in one or more blocks.
         """
-        print()
         found_utxo_list = []
         while True:
-            print('waiting for transaction(s) %s to be adopted...' % transaction_ids)
+            applog.info('waiting for transaction(s) %s to be adopted...' % transaction_ids)
             sleep(SLEEP_TIMEOUT)
             utxo_list = get_utxo_list(change_address)
             if err:
-                print(err)
                 applog.error(err)
                 msg = {}
                 msg['error'] = 'Server error: %s' % err
@@ -907,7 +885,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                 for utxo in utxo_list:
                     if utxo in transaction_ids and utxo not in found_utxo_list:
                         found_utxo_list.append(utxo)
-                        print('Transaction %s adopted' % utxo)
                         applog.info('Transaction %s adopted' % utxo)
                         now = datetime.datetime.now()
                         cur.execute("UPDATE transactions SET status = 'transaction adopted', date = ? "
@@ -915,8 +892,6 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                         conn.commit()
                 if len(transaction_ids) == len(found_utxo_list):
                     break
-        print('All airdrop transactions adopted')
-        print('Airdrop %s finished' % airdrop_id)
         applog.info('All airdrop transactions adopted')
         applog.info('Airdrop %s finished' % airdrop_hash)
         now = datetime.datetime.now()
@@ -929,11 +904,22 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
         msg['details'] = airdrop_details
 
         conn.close()
-        print(msg)
+        applog.info(msg)
         return msg
 
 
 if __name__ == '__main__':
+    """
+    Set up logging
+    """
+    handler = logging.handlers.WatchedFileHandler(LOG_FILE)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+
+    applog = logging.getLogger('airdrops')
+    applog.addHandler(handler)
+    applog.setLevel(logging.INFO)
+
     """
     create some required folders to store log and transaction file
     """
@@ -945,7 +931,7 @@ if __name__ == '__main__':
         if not os.path.exists(os.path.dirname(DB_NAME)):
             os.mkdir(os.path.dirname(DB_NAME))
     except Exception as e:
-        print('Error creating the required folders: %s' % e)
+        applog.exception('Error creating the required folders: %s' % e)
         sys.exit(1)
 
     """
@@ -992,17 +978,6 @@ if __name__ == '__main__':
     cur.execute(
         '''CREATE INDEX IF NOT EXISTS transaction_details_transaction_id on transaction_details(transaction_id)''')
     conn.commit()
-
-    """
-    Set up logging
-    """
-    handler = logging.handlers.WatchedFileHandler(LOG_FILE)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-
-    applog = logging.getLogger('airdrops')
-    applog.addHandler(handler)
-    applog.setLevel(logging.INFO)
 
     applog.info("*****************************************************************")
     applog.info('Starting')
