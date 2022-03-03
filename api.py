@@ -18,15 +18,9 @@ app = Flask(__name__)
 app.config['DEBUG'] = True
 app.config['UPLOAD_FOLDER'] = FILES_PATH
 app.wsgi_app = ProxyFix(app.wsgi_app)
+
 api = Api(app, version='0.1', title='FreeDropz API', description='A simple API for FreeDropz',)
 ns = api.namespace('api/v0', description='Airdrop operations')
-
-test_parser = reqparse.RequestParser()
-test_parser.add_argument('token_policy', type=str, help='Token policy', required=True)
-test_parser.add_argument('token_name', type=str, help='Token name', required=True)
-
-airdrop_details_parser = reqparse.RequestParser()
-airdrop_details_parser.add_argument('airdrop_hash', type=str, help='Airdrop hash', required=True)
 
 airdrop_parser = reqparse.RequestParser()
 airdrop_parser.add_argument('airdrop_file', type=FileStorage, location=FILES_PATH, required=True)
@@ -38,34 +32,26 @@ class Home(Resource):
         return "<h1>FreeDropz API</h1>"
 
 
-"""
-@ns.route('/test')
+@ns.route('/airdrop_details/<string:airdrop_hash>')
 @api.response(HTTPStatus.OK.value, "OK")
 @api.response(HTTPStatus.NOT_ACCEPTABLE.value, "Not Acceptable client error")
 @api.response(HTTPStatus.SERVICE_UNAVAILABLE.value, "Server error")
-@api.doc(parser=test_parser)
-class Test(Resource):
-    def get(self):
-        args = test_parser.parse_args()
-        return "<h1>FreeDropz API</p><br>Token: %s.%s" % (args['token_policy'], args['token_name'])
-"""
-
-
-@ns.route('/airdrop_details')
-@api.response(HTTPStatus.OK.value, "OK")
-@api.response(HTTPStatus.NOT_ACCEPTABLE.value, "Not Acceptable client error")
-@api.response(HTTPStatus.SERVICE_UNAVAILABLE.value, "Server error")
-@api.doc(parser=airdrop_details_parser)
-class Test(Resource):
-    def get(self):
-        args = airdrop_details_parser.parse_args()
+# @api.doc(parser=airdrop_details_parser)
+class AirdropDetails(Resource):
+    def get(self, airdrop_hash):
+        # args = airdrop_details_parser.parse_args()
         conn = sqlite3.connect(DB_NAME)
         cur = conn.cursor()
-        cur.execute("SELECT max(id) FROM airdrops WHERE hash = ?", (args['airdrop_hash'],))
-        airdrop_id = cur.fetchone()[0]
-        airdrop_details = get_airdrop_details(cur, airdrop_id)
-        conn.close()
-        return airdrop_details
+        # cur.execute("SELECT max(id) FROM airdrops WHERE hash = ?", (args['airdrop_hash'],))
+        cur.execute("SELECT max(id) FROM airdrops WHERE hash = ?", (airdrop_hash, ))
+        airdrop_id = cur.fetchone()
+        if airdrop_id[0]:
+            airdrop_details = get_airdrop_details(cur, airdrop_id[0])
+            conn.close()
+            return airdrop_details
+        else:
+            conn.close()
+            return 'Airdrop not found'
 
 
 @ns.route('/validate')
@@ -757,7 +743,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                   + trans_filename_prefix + '.signed.cbor'
             stream = os.popen(cmd)
             out = stream.read().strip()
-            applog.info(out)
+            applof.info(out)
 
             now = datetime.datetime.now()
             cur.execute("INSERT INTO transactions (airdrop_id, hash, name, status, date) VALUES (?, ?, ?, ?, ?)",
