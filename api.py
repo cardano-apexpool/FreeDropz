@@ -157,7 +157,7 @@ class EventValidate(Resource):
             return msg, 406
         else:
             extra_ada = int(len(airdrops_list) / ADDRESSES_PER_TRANSACTION * (860000 + EXTRA_LOVELACE) / 1000000 + 1)
-            applog.error('Transaction is possible - available amounts are more than the amounts to spend.')
+            applog.info('Airdrop is possible - available amounts are more than the amounts to spend.')
             if spend_amounts['lovelace'] + extra_ada * 1000000 > tokens_amounts['lovelace']:
                 applog.error('Please be sure there are about %d extra ADA in the source address.\n' % extra_ada)
         applog.info('source_transactions: %s\n' % source_transactions)
@@ -165,7 +165,7 @@ class EventValidate(Resource):
         msg = {}
         msg['spend_amounts'] = spend_amounts
         msg['available_amounts'] = tokens_amounts
-        msg['message'] = 'Transaction is possible - available amounts are more than the amounts to spend. '
+        msg['message'] = 'Airdrop is possible - available amounts are more than the amounts to spend. '
         msg['message'] += 'Please be sure there are about %d extra ADA in the source address.' % extra_ada
         return msg
 
@@ -276,7 +276,7 @@ class EventSubmit(Resource):
             return msg, 406
         else:
             extra_ada = int(len(airdrops_list) / ADDRESSES_PER_TRANSACTION * (860000 + EXTRA_LOVELACE) / 1000000 + 1)
-            applog.info('Transaction is possible - available amounts are more than the amounts to spend.')
+            applog.info('Airdrop is possible - available amounts are more than the amounts to spend.')
             if spend_amounts['lovelace'] + extra_ada * 1000000 > tokens_amounts['lovelace']:
                 applog.error('Please be sure there are about %d extra ADA in the source address.\n' % extra_ada)
         applog.info('source_transactions: %s\n' % source_transactions)
@@ -293,8 +293,7 @@ class EventSubmit(Resource):
         msg['spend_amounts'] = spend_amounts
         msg['available_amounts'] = tokens_amounts
         msg['airdrop_id'] = airdrop_id
-        msg['message'] = 'Transaction is possible - available amounts are more than the amounts to spend. '
-        msg['message'] += 'Please be sure there are about %d extra ADA in the source address.' % extra_ada
+        msg['message'] = 'Airdrop started'
         return msg
 
 
@@ -743,7 +742,7 @@ def airdrop(dst_addresses, amounts, change_address, src_transactions, src_token_
                   + trans_filename_prefix + '.signed.cbor'
             stream = os.popen(cmd)
             out = stream.read().strip()
-            applof.info(out)
+            applog.info(out)
 
             now = datetime.datetime.now()
             cur.execute("INSERT INTO transactions (airdrop_id, hash, name, status, date) VALUES (?, ?, ?, ?, ?)",
